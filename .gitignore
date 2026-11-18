@@ -1,0 +1,8 @@
+node_modules/
+build/
+dist/
+*.log
+.env
+.env.*
+# Signal traces can contain face-landmark data: never commit them.
+*trace*.json

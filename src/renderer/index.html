@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- worker-src blob: is required by the SmartSpectra renderer SDK. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self';">
+  <title>Drift</title>
+  <link rel="stylesheet" href="./renderer.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script src="./renderer.js"></script>
+</body>
+</html>

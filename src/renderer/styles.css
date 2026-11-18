@@ -1,0 +1,100 @@
+/* Drift design tokens (see the plan's UI/UX section). Dark by default. */
+:root {
+  --bg: #111418;
+  --surface: #1b1f24;
+  --surface-2: #232830;
+  --border: #2a3038;
+  --text: #eceef0;
+  --text-2: #9aa3ad;
+  --accent: #f2b544;          /* only for "Drift is talking" */
+  --accent-ink: #1a1405;
+  --ok: #6cc59a;
+  --info: #7fa7d9;
+  --error: #e5736b;
+  --radius: 10px;
+  --s1: 8px; --s2: 16px; --s3: 24px; --s4: 32px; --s5: 48px;
+  --font: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.55 var(--font); font-feature-settings: 'tnum' 1; -webkit-font-smoothing: antialiased; }
+h1 { font-size: 28px; line-height: 1.25; margin: 0 0 var(--s2); font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: 20px; margin: 0 0 var(--s1); font-weight: 600; }
+h3 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+p { margin: 0 0 var(--s2); }
+.muted { color: var(--text-2); }
+.small { font-size: 13px; }
+a { color: var(--info); }
+
+/* Layout */
+.app { display: grid; grid-template-rows: 52px 1fr; height: 100%; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--s3); border-bottom: 1px solid var(--border); }
+.wordmark { font-weight: 700; letter-spacing: 0.02em; }
+.wordmark span { color: var(--accent); }
+.topbar-right { display: flex; gap: var(--s1); align-items: center; }
+.page { overflow: auto; padding: var(--s4) var(--s3); }
+.column { max-width: 600px; margin: 0 auto; }
+.wide { max-width: 1040px; margin: 0 auto; }
+
+/* Cards and controls */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--s3); margin-bottom: var(--s2); }
+.row { display: flex; gap: var(--s1); flex-wrap: wrap; align-items: center; margin-top: var(--s2); }
+.btn { font: inherit; font-size: 14px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
+.btn:hover:not(:disabled) { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.06); background: var(--accent); }
+.btn.danger { border-color: var(--error); color: var(--error); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--info); font: inherit; cursor: pointer; text-decoration: underline; }
+input[type=password], input[type=text], select { width: 100%; font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+.notice { border-radius: 8px; padding: 10px 14px; margin-top: var(--s2); border: 1px solid var(--border); }
+.notice.error { border-color: var(--error); color: var(--error); }
+.notice.warn { border-color: var(--accent); }
+
+/* Pills */
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); font-size: 13px; color: var(--text-2); }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-2); }
+.pill.on { border-color: var(--accent); color: var(--text); }
+.pill.on .dot { background: var(--accent); }
+
+/* Consent blocks */
+.blocks { display: grid; gap: var(--s2); margin: var(--s3) 0; }
+.block { border-left: 3px solid var(--border); padding-left: var(--s2); }
+.block ul { margin: 6px 0 0; padding-left: 18px; color: var(--text-2); }
+
+/* Camera check */
+.check-grid { display: grid; grid-template-columns: 480px 1fr; gap: var(--s3); }
+.preview { position: relative; width: 480px; height: 360px; background: #000; border-radius: var(--radius); overflow: hidden; }
+.preview video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.preview .oval { position: absolute; left: 50%; top: 46%; width: 190px; height: 250px; transform: translate(-50%, -50%); border: 2px dashed rgba(236, 238, 240, 0.45); border-radius: 50%; pointer-events: none; }
+.preview .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); }
+.checklist { list-style: none; padding: 0; margin: 0 0 var(--s2); }
+.checklist li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.checklist .mark { font-weight: 700; }
+.checklist .ok .mark { color: var(--ok); }
+.checklist .bad .mark { color: var(--accent); }
+.checklist .wait .mark { color: var(--text-2); }
+.hint { font-size: 13px; color: var(--text-2); }
+.progress { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.progress > div { height: 100%; background: var(--accent); transition: width 0.2s linear; }
+
+/* Debug panel */
+.state { font-size: 34px; font-weight: 650; margin-bottom: 4px; }
+.state.alert { color: var(--accent); }
+.kv { display: grid; grid-template-columns: 210px 1fr; gap: 6px 16px; font-size: 14px; }
+.kv dt { color: var(--text-2); }
+.kv dd { margin: 0; }
+.meter { position: relative; height: 10px; background: var(--surface-2); border-radius: 5px; margin: 6px 0 2px; }
+.meter .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--info); border-radius: 5px; }
+.meter .line { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-2); font-weight: 500; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (max-width: 1000px) { .check-grid, .two { grid-template-columns: 1fr; } }
