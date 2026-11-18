@@ -98,3 +98,40 @@ th { color: var(--text-2); font-weight: 500; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 @media (max-width: 1000px) { .check-grid, .two { grid-template-columns: 1fr; } }
+
+/* Navigation */
+.topbar-left { display: flex; align-items: center; gap: var(--s3); }
+.nav { display: flex; gap: 4px; }
+.nav-btn { font: inherit; font-size: 14px; background: none; border: 0; color: var(--text-2); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.nav-btn:hover { color: var(--text); }
+.nav-btn.active { color: var(--text); background: var(--surface-2); }
+.nav-btn:focus-visible { outline: 2px solid var(--accent); }
+
+/* Banners */
+.banner { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: var(--s2); background: var(--surface); }
+.banner.warn { border-color: var(--accent); }
+
+/* Open a lecture */
+.dropzone { border: 2px dashed var(--border); border-radius: 14px; padding: var(--s5) var(--s3); text-align: center; }
+.dropzone.over { border-color: var(--accent); background: rgba(242, 181, 68, 0.06); }
+
+/* Player */
+.player { max-width: 1240px; margin: 0 auto; }
+.stage { position: relative; background: #000; border-radius: var(--radius); overflow: hidden; aspect-ratio: 16 / 9; max-height: calc(100vh - 230px); margin: 0 auto; }
+.stage video { width: 100%; height: 100%; object-fit: contain; display: block; transition: filter 0.2s; cursor: pointer; }
+.stage video.dimmed { filter: brightness(0.35); }
+.drift-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, 90%); background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: var(--s3); text-align: center; box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5); }
+.drift-card h2 { font-size: 20px; }
+.drift-card .waiting { color: var(--accent); }
+.drift-card .hint { margin: 10px 0 0; }
+.drift-card .link-btn { margin-top: 12px; display: inline-block; }
+.row.center { justify-content: center; }
+.controls { display: flex; align-items: center; gap: var(--s1); margin-top: var(--s2); }
+.controls select { width: auto; padding: 8px 10px; }
+.time { font-size: 13px; color: var(--text-2); min-width: 110px; }
+.track { position: relative; flex: 1; height: 8px; background: var(--surface-2); border-radius: 4px; cursor: pointer; }
+.track .played { position: absolute; left: 0; top: 0; bottom: 0; background: var(--text-2); border-radius: 4px; }
+.track .marker { position: absolute; top: -5px; width: 4px; height: 18px; margin-left: -2px; background: var(--accent); border-radius: 2px; }
+.file-name { margin-top: 8px; }
+.settings { position: fixed; right: 24px; bottom: 90px; width: 360px; z-index: 10; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

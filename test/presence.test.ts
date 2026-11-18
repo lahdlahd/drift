@@ -1,32 +1,18 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { gunzipSync } from 'node:zlib';
 import { PresenceTracker, computeBaseline, type PresenceState } from '../src/renderer/sensing/presence';
 
-// Real-hardware regression: Joel's Milestone 0 run (eye-openness ratios, blink
-// sample times and the test cue marks; no images). Replayed through the tracker.
-type Ev = ['b', number] | ['e', number, number, number] | ['m', number, string, number | null, string, string | null, number | null];
-interface Window { trial: string; rep: number; durationS: number; start: number; end: number }
+// Real-hardware regression: Joel's Milestone 0 run, replayed through the tracker.
+import { loadRun, type Ev, type CueWindow } from './replay';
 
 let events: Ev[];
-let windows: Window[];
+let windows: CueWindow[];
 let trialSpans: Record<string, { from: number; to: number }>;
 
 beforeAll(() => {
-    const raw = JSON.parse(gunzipSync(readFileSync('test/fixtures/m0-run.json.gz')).toString('utf8'));
-    events = (raw.events as Ev[]).sort((a, b) => a[1] - b[1]);
-    windows = [];
-    trialSpans = {};
-    const open = new Map<string, number>();
-    for (const e of events) {
-        if (e[0] !== 'm') continue;
-        const [, t, trial, rep, phase, , dur] = e;
-        if (phase === 'trial-start') trialSpans[trial] = { from: t, to: Infinity };
-        if (phase === 'trial-end' && trialSpans[trial]) trialSpans[trial]!.to = t;
-        const k = `${trial}:${rep}`;
-        if (phase === 'action-start') open.set(k, t);
-        if (phase === 'action-end' && open.has(k)) windows.push({ trial, rep: rep ?? 0, durationS: dur ?? 0, start: open.get(k)!, end: t });
-    }
+    const run = loadRun();
+    events = run.events;
+    windows = run.windows;
+    trialSpans = run.spans;
 });
 
 function baselineFromRun(): number {

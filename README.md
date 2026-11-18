@@ -5,8 +5,7 @@ eyes stay closed or you leave your seat, it pauses the video, marks the moment
 and offers to rewind when you're back. It uses your webcam through
 [Presage SmartSpectra](https://smartspectra.presagetech.com/docs/).
 
-> Status: Milestone 1 (app shell, consent, key storage, camera check, live signals).
-> The lecture player arrives in Milestone 2.
+> Status: Milestone 2 is done: the lecture player, automatic pause, drift markers, rewind card and summary.
 
 ## How Drift detects drifting
 
@@ -35,8 +34,18 @@ npm start
 Use Command Prompt or Windows Terminal. VS Code's terminal sets
 `ELECTRON_RUN_AS_NODE`, which stops Electron from starting.
 
-On first run Drift shows what it does with the camera, then asks for your key,
-then runs a 20-second camera check.
+On first run, Drift:
+
+1. shows what it does with the camera;
+2. asks for your key;
+3. runs a 20-second camera check.
+
+Then open a lecture (MP4 or WebM) and watch. Keyboard shortcuts:
+
+- **Space**: play or pause, or Continue when the drift card is open.
+- **R**: rewind, when the drift card is open.
+- **← / →**: skip 5 s.
+- **Esc**: stop the camera.
 
 You need light in front of your face. When it's lit from behind, a typical laptop
 webcam drops to 15 frames per second and the SDK stops.
@@ -64,6 +73,7 @@ Architecture:
 - **`src/main`**: Electron main process. Secure window, camera-only permission, encrypted key store, settings.
 - **`src/preload`**: the SDK's bridge plus Drift's narrow `window.drift` bridge.
 - **`src/renderer/sensing`**: camera and SDK session, eye openness, and the presence tracker.
-- **`src/renderer/screens`**: consent, key, camera check, and the live-signal view.
+- **`src/renderer/drift/engine.ts`**: when to pause, where the drift started, and where to rewind to. Tested by replaying the real hardware run against a simulated lecture.
+- **`src/renderer/screens`**: consent, key, camera check, player, summary, and the live-signal view.
 
 The SmartSpectra integration follows Presage's official Electron quickstart.

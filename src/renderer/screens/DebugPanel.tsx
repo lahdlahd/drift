@@ -61,9 +61,12 @@ export function DebugPanel({ onRecalibrate, onRemoveKey }: Props) {
     const [cycles, setCycles] = useState<CycleResult[] | null>(null);
     const [cycling, setCycling] = useState(false);
     const prev = useRef<PresenceState | null>(null);
+    const cyclingRef = useRef(false);
 
     useEffect(() => {
         if (prev.current === snap.state) return;
+        // The start/stop test restarts the camera 10 times: don't log those as state changes.
+        if (cyclingRef.current) { prev.current = snap.state; return; }
         prev.current = snap.state;
         const detail = snap.state === 'eyes-closed' ? `after ${snap.eyesClosedForS.toFixed(1)} s` : snap.state === 'away' ? `still for ${snap.stillForS.toFixed(1)} s` : '';
         setLog((l) => [{ at: new Date().toLocaleTimeString(), state: snap.state, detail }, ...l].slice(0, 30));
@@ -75,8 +78,10 @@ export function DebugPanel({ onRecalibrate, onRemoveKey }: Props) {
 
     async function startCycles() {
         setCycling(true);
+        cyclingRef.current = true;
         setCycles([]);
         await runCycleTest(10, (r) => setCycles((c) => [...(c ?? []), r]));
+        cyclingRef.current = false;
         setCycling(false);
     }
 
@@ -84,11 +89,12 @@ export function DebugPanel({ onRecalibrate, onRemoveKey }: Props) {
 
     return (
         <div className="wide">
-            <h1>Live signals <span className="muted small">(Milestone 1 debug view)</span></h1>
+            <h1>Live signals</h1>
+            <p className="muted">What Drift sees right now. Useful for checking your setup.</p>
             <div className="two">
                 <div className="card">
                     <div className={`state ${alert ? 'alert' : ''}`} data-testid="presence-state" aria-live="polite">{LABEL[snap.state]}</div>
-                    <p className="muted small">In Milestone 2 the lecture pauses on “Eyes closed” or “Away”.</p>
+                    <p className="muted small">The lecture pauses on “Eyes closed” or “Away from the screen”, never on “Looking away”.</p>
                     <dl className="kv">
                         <dt>Eyes closed for</dt><dd>{snap.eyesClosedForS.toFixed(1)} s (pauses at {tracker.config.eyesClosedS} s)</dd>
                         <dt>Face still for</dt><dd>{snap.stillForS.toFixed(1)} s (away at {tracker.config.awayS} s)</dd>

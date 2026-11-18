@@ -6,9 +6,11 @@ import { Welcome } from './screens/Welcome';
 import { KeySetup } from './screens/KeySetup';
 import { CameraCheck } from './screens/CameraCheck';
 import { DebugPanel } from './screens/DebugPanel';
+import { Player, engine, type Lecture } from './screens/Player';
+import { Summary } from './screens/Summary';
 import type { KeyStatus, Settings } from '../shared/ipc';
 
-type Screen = 'loading' | 'welcome' | 'key' | 'check' | 'live';
+type Screen = 'loading' | 'welcome' | 'key' | 'check' | 'player' | 'summary' | 'signals';
 
 export function App() {
     const [screen, setScreen] = useState<Screen>('loading');
@@ -16,6 +18,9 @@ export function App() {
     const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null);
     const [declined, setDeclined] = useState(false);
     const [fatal, setFatal] = useState<string | null>(null);
+    const [lecture, setLecture] = useState<Lecture | null>(null);
+    const [resumeAt, setResumeAt] = useState<number | null>(null);
+    const clearResume = useCallback(() => setResumeAt(null), []);
     const cameraOn = useCameraOn();
     const presence = usePresence();
 
@@ -39,6 +44,11 @@ export function App() {
             }
         })();
     }, [route]);
+
+    // Self-test only (#selftest): let the smoke test move between screens.
+    useEffect(() => {
+        if (location.hash === '#selftest') (window as unknown as { __driftGoto: (s: Screen) => void }).__driftGoto = setScreen;
+    }, []);
 
     // Esc always turns the camera off.
     useEffect(() => {
@@ -77,7 +87,16 @@ export function App() {
     return (
         <div className="app">
             <header className="topbar">
-                <div className="wordmark">Drift<span>.</span></div>
+                <div className="topbar-left">
+                    <div className="wordmark">Drift<span>.</span></div>
+                    {(screen === 'player' || screen === 'summary' || screen === 'signals') && (
+                        <nav className="nav" aria-label="Main">
+                            <button className={`nav-btn ${screen === 'player' ? 'active' : ''}`} onClick={() => setScreen('player')}>Lecture</button>
+                            <button className={`nav-btn ${screen === 'summary' ? 'active' : ''}`} onClick={() => setScreen('summary')}>Summary</button>
+                            <button className={`nav-btn ${screen === 'signals' ? 'active' : ''}`} onClick={() => setScreen('signals')}>Live signals</button>
+                        </nav>
+                    )}
+                </div>
                 <div className="topbar-right">
                     <span className={`pill ${cameraOn ? 'on' : ''}`} data-testid="camera-pill" role="status"><span className="dot" />{pillText}</span>
                     {cameraOn && <button className="btn" onClick={() => void sensing.stop()} title="Esc">Stop camera</button>}
@@ -87,8 +106,27 @@ export function App() {
                 {fatal && <p className="notice error">Drift could not start: {fatal}</p>}
                 {screen === 'welcome' && <Welcome onAccept={() => void acceptConsent()} declined={declined} onDecline={() => setDeclined(true)} />}
                 {screen === 'key' && <KeySetup status={keyStatus} onSaved={() => void keySaved()} />}
-                {screen === 'check' && <CameraCheck onReady={() => setScreen('live')} onChangeKey={() => setScreen('key')} />}
-                {screen === 'live' && <DebugPanel onRecalibrate={() => setScreen('check')} onRemoveKey={() => void removeKey()} />}
+                {screen === 'check' && <CameraCheck onReady={() => setScreen('player')} onChangeKey={() => setScreen('key')} />}
+                {screen === 'player' && (
+                    <Player
+                        lecture={lecture}
+                        onOpen={setLecture}
+                        onEnd={() => setScreen('summary')}
+                        onNeedCamera={() => setScreen('check')}
+                        resumeAt={resumeAt}
+                        onResumed={clearResume}
+                    />
+                )}
+                {screen === 'summary' && (
+                    <Summary
+                        lectureName={lecture?.name ?? null}
+                        drifts={engine.drifts}
+                        onWatchFrom={(t) => { setResumeAt(t); setScreen('player'); }}
+                        onNewLecture={() => { if (lecture) URL.revokeObjectURL(lecture.url); engine.reset(); setLecture(null); setScreen('player'); }}
+                        onBack={() => setScreen('player')}
+                    />
+                )}
+                {screen === 'signals' && <DebugPanel onRecalibrate={() => setScreen('check')} onRemoveKey={() => void removeKey()} />}
                 {settings && screen === 'loading' && null}
             </main>
         </div>

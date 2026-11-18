@@ -90,7 +90,18 @@ function createWindow() {
 // Headless smoke test for development only (DRIFT_SELFTEST=1): prints the UI's
 // self-report and quits. Never active in normal use.
 function runSelfTest(win: BrowserWindow) {
-    win.webContents.on('console-message', (_e, _level, msg) => console.log('[renderer]', msg));
+    win.webContents.on('console-message', (_e, _level, msg) => {
+        const shot = /^\[shot\] ([a-z0-9-]+)$/.exec(msg);
+        const dir = process.env.DRIFT_SELFTEST_SHOTS;
+        if (shot && dir) {
+            void win.webContents.capturePage().then((img) => {
+                fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(path.join(dir, `${shot[1]}.png`), img.toPNG());
+            });
+            return;
+        }
+        console.log('[renderer]', msg);
+    });
     win.webContents.once('did-finish-load', () => {
         setTimeout(async () => {
             try {
