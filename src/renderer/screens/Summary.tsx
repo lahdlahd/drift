@@ -1,6 +1,7 @@
 import { formatTime, type Drift } from '../drift/engine';
 
 interface Props {
+    hasLecture: boolean;
     lectureName: string | null;
     drifts: Drift[];
     onWatchFrom: (t: number) => void;
@@ -8,7 +9,7 @@ interface Props {
     onBack: () => void;
 }
 
-const REASON: Record<Drift['reason'], string> = { 'eyes-closed': 'Eyes closed', away: 'Stepped away', 'signal-lost': 'Camera signal lost' };
+const REASON: Record<Drift['reason'], string> = { 'eyes-closed': 'Eyes closed', away: 'Stepped away', 'looked-away': 'Looked away', 'signal-lost': 'Camera signal lost' };
 const ACTION: Record<string, string> = { rewind: 'Rewound', continue: 'Continued', dismiss: 'Dismissed' };
 
 function awayFor(d: Drift): string {
@@ -17,8 +18,17 @@ function awayFor(d: Drift): string {
     return s < 60 ? `${Math.round(s)} s` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
 }
 
-export function Summary({ lectureName, drifts, onWatchFrom, onNewLecture, onBack }: Props) {
+export function Summary({ hasLecture, lectureName, drifts, onWatchFrom, onNewLecture, onBack }: Props) {
     const sorted = [...drifts].sort((a, b) => a.onsetVideo - b.onsetVideo);
+    if (!hasLecture) {
+        return (
+            <div className="column">
+                <h1 data-testid="summary-title">No lecture yet</h1>
+                <p className="muted">Open a lecture and Drift will list here every moment you drifted, so you can rewatch just those parts.</p>
+                <div className="row"><button className="btn primary" onClick={onNewLecture}>Open a lecture</button></div>
+            </div>
+        );
+    }
     return (
         <div className="column">
             <h1 data-testid="summary-title">

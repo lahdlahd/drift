@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 
-export type Ev = ['b', number] | ['e', number, number, number] | ['m', number, string, number | null, string, string | null, number | null];
+export type Ev = ['b', number] | ['e', number, number, number] | ['v', number, string] | ['m', number, string, number | null, string, string | null, number | null];
 export interface CueWindow { trial: string; rep: number; durationS: number; start: number; end: number }
 
 export interface Run {
@@ -12,11 +12,12 @@ export interface Run {
     spans: Record<string, { from: number; to: number }>;
 }
 
-let cached: Run | null = null;
+const cache = new Map<string, Run>();
 
-export function loadRun(): Run {
-    if (cached) return cached;
-    const raw = JSON.parse(gunzipSync(readFileSync('test/fixtures/m0-run.json.gz')).toString('utf8'));
+export function loadRun(name = 'm0-run'): Run {
+    const hit = cache.get(name);
+    if (hit) return hit;
+    const raw = JSON.parse(gunzipSync(readFileSync(`test/fixtures/${name}.json.gz`)).toString('utf8'));
     const events = (raw.events as Ev[]).sort((a, b) => a[1] - b[1]);
     const windows: CueWindow[] = [];
     const spans: Run['spans'] = {};
@@ -30,8 +31,9 @@ export function loadRun(): Run {
         if (phase === 'action-start') open.set(k, t);
         if (phase === 'action-end' && open.has(k)) windows.push({ trial, rep: rep ?? 0, durationS: dur ?? 0, start: open.get(k)!, end: t });
     }
-    cached = { events, windows, spans };
-    return cached;
+    const run = { events, windows, spans };
+    cache.set(name, run);
+    return run;
 }
 
 /**

@@ -4,8 +4,10 @@
 //
 // Rules:
 //  - Pauses only while the video is playing (never when the user paused it).
-//  - Pauses on 'eyes-closed' or 'away' from the presence tracker; never on
-//    'looking-away' or 'no-signal' (looking down at notes must not pause).
+//  - Pauses on 'eyes-closed' or 'away' from the presence tracker.
+//  - 'looking-away' (face not tracked) pauses only after lookAwayPauseS, much
+//    longer than a glance at notes (longest in the recordings: 11 s). Off when null.
+//  - Never pauses on 'no-signal'.
 //  - The drift is marked at its onset (when the eyes closed / the face left),
 //    mapped back to the video time at that moment.
 //  - "Back" = 'watching' continuously for returnS.
@@ -14,7 +16,7 @@
 
 import type { PresenceSnapshot } from '../sensing/presence';
 
-export type DriftReason = 'eyes-closed' | 'away' | 'signal-lost';
+export type DriftReason = 'eyes-closed' | 'away' | 'looked-away' | 'signal-lost';
 export type DriftAction = 'rewind' | 'continue' | 'dismiss';
 
 export interface Drift {
@@ -38,7 +40,7 @@ export type EngineEvent =
 
 export interface PlayerState { playing: boolean; time: number }
 
-export interface EngineOptions { rewindSeconds: number; returnS: number }
+export interface EngineOptions { rewindSeconds: number; returnS: number; lookAwayPauseS: number | null }
 
 const US = 1e6;
 
@@ -51,7 +53,7 @@ export class DriftEngine {
     drifts: Drift[] = [];
 
     constructor(opts: Partial<EngineOptions> = {}) {
-        this.opts = { rewindSeconds: 30, returnS: 1.0, ...opts };
+        this.opts = { rewindSeconds: 30, returnS: 1.0, lookAwayPauseS: 20, ...opts };
     }
 
     configure(opts: Partial<EngineOptions>) { this.opts = { ...this.opts, ...opts }; }
@@ -111,13 +113,15 @@ export class DriftEngine {
         }
 
         if (!player.playing) return events;
-        if (snap.state !== 'eyes-closed' && snap.state !== 'away') return events;
+        const longLookAway = snap.state === 'looking-away' && this.opts.lookAwayPauseS != null && snap.untrackedForS >= this.opts.lookAwayPauseS;
+        if (snap.state !== 'eyes-closed' && snap.state !== 'away' && !longLookAway) return events;
+        const reason: DriftReason = longLookAway ? 'looked-away' : (snap.state as 'eyes-closed' | 'away');
 
-        const onsetT = snap.since ?? now;
+        const onsetT = longLookAway ? now - snap.untrackedForS * US : (snap.since ?? now);
         const onsetVideo = Math.min(player.time, Math.max(0, this.videoTimeAt(onsetT, player.time)));
         const drift: Drift = {
             id: this.nextId++,
-            reason: snap.state,
+            reason,
             onsetVideo,
             pausedAtVideo: player.time,
             onsetT,

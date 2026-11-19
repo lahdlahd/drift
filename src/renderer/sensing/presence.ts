@@ -7,6 +7,9 @@
 //    baseline, continuously. Reopens above reopenFactor × baseline (hysteresis).
 //  - Away from seat: face landmarks stop changing (SmartSpectra keeps sending the
 //    last landmarks unchanged when the face is gone; validation still says OK).
+//  - Away (backup): no landmark frames and the SDK's last position code is
+//    NoFaceFound or FaceTooHigh (standing up) for awayS. M0/M2 recordings showed
+//    FaceTooLow for BOTH looking down and leaving, so FaceTooLow is never used.
 //  - Looking away/down: the face stops being tracked, so landmark frames stop
 //    arriving (or blink samples stop while landmarks still move). Status only:
 //    looking down at notes must never pause the lecture.
@@ -54,6 +57,10 @@ export interface PresenceSnapshot {
     since: number | null;
     /** Latest relative landmark movement (diagnostics). */
     motion: number | null;
+    /** Seconds without any landmark frames (face not tracked). */
+    untrackedForS: number;
+    /** Latest SDK validation code name (e.g. Ok, FaceTooLow). */
+    position: string | null;
 }
 
 const US = 1e6;
@@ -62,6 +69,7 @@ export class PresenceTracker {
     private cfg: PresenceConfig;
     private baseline: number | null = null;
     private lastMotion: number | null = null;
+    private lastPosition: string | null = null;
     private lastEar: number | null = null;
     private lastLandmarkT: number | null = null;
     private lastChangeT: number | null = null;
@@ -81,7 +89,7 @@ export class PresenceTracker {
     get eyeBaseline(): number | null { return this.baseline; }
 
     reset() {
-        this.lastMotion = null; this.lastEar = null; this.lastLandmarkT = null; this.lastChangeT = null;
+        this.lastMotion = null; this.lastPosition = null; this.lastEar = null; this.lastLandmarkT = null; this.lastChangeT = null;
         this.lastBlinkT = null; this.closedSince = null; this.stateSince = null; this.prevState = 'no-signal';
     }
 
@@ -105,6 +113,9 @@ export class PresenceTracker {
 
     feedBlinkSample(t: number) { this.lastBlinkT = t; }
 
+    /** SDK validation code name, e.g. 'Ok', 'FaceTooLow', 'NoFaceFound'. */
+    feedValidation(_t: number, name: string) { this.lastPosition = name; }
+
     snapshot(now: number): PresenceSnapshot {
         // "Still" only counts while landmark frames keep arriving unchanged.
         const stillForS = this.lastChangeT === null || this.lastLandmarkT === null ? 0 : (this.lastLandmarkT - this.lastChangeT) / US + Math.min((now - this.lastLandmarkT) / US, this.cfg.lookingAwayS);
@@ -115,6 +126,7 @@ export class PresenceTracker {
 
         let state: PresenceState;
         if (neverTracked) state = 'no-signal';
+        else if (untrackedForS >= this.cfg.awayS && (this.lastPosition === 'NoFaceFound' || this.lastPosition === 'FaceTooHigh')) state = 'away';
         else if (untrackedForS >= this.cfg.lookingAwayS) state = 'looking-away';
         else if (stillForS >= this.cfg.awayS) state = 'away';
         else if (eyesClosedForS >= this.cfg.eyesClosedS) state = 'eyes-closed';
@@ -124,7 +136,7 @@ export class PresenceTracker {
         if (state !== this.prevState) {
             this.prevState = state;
             if (state === 'eyes-closed') this.stateSince = this.closedSince;
-            else if (state === 'away') this.stateSince = this.lastChangeT;
+            else if (state === 'away') this.stateSince = untrackedForS >= this.cfg.awayS ? this.lastLandmarkT : this.lastChangeT;
             else this.stateSince = now;
         }
 
@@ -137,6 +149,8 @@ export class PresenceTracker {
             closedBelow: this.baseline == null ? null : this.cfg.closeFactor * this.baseline,
             since: this.stateSince,
             motion: this.lastMotion,
+            untrackedForS,
+            position: this.lastPosition,
         };
     }
 }

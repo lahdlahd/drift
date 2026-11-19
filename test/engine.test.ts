@@ -6,13 +6,13 @@ import { DriftEngine, formatTime, type Drift } from '../src/renderer/drift/engin
 // Replays the real M0 run as if a lecture were playing the whole time:
 // the video pauses when the engine says so, and resumes ("Continue") once
 // the engine reports the user is back.
-function simulate(run: Run, opts: { playing?: (t: number) => boolean; answer?: 'continue' | 'rewind' } = {}) {
-    const span = run.spans.baseline!;
+function simulate(run: Run, opts: { playing?: (t: number) => boolean; answer?: 'continue' | 'rewind'; lookAwayPauseS?: number | null } = {}) {
+    const span = run.spans.baseline ?? { from: run.events[0]![1], to: Infinity };
     const ears = run.events.filter((e): e is ['e', number, number, number] => e[0] === 'e' && e[1] >= span.from && e[1] <= span.from + 60e6)
         .map((e) => (e[2] + e[3]) / 2);
     const tracker = new PresenceTracker();
     tracker.setBaseline(computeBaseline(ears)!);
-    const engine = new DriftEngine({ rewindSeconds: 30 });
+    const engine = new DriftEngine({ rewindSeconds: 30, lookAwayPauseS: opts.lookAwayPauseS === undefined ? 20 : opts.lookAwayPauseS });
 
     let video = 0;
     let driftPaused = false;
@@ -39,6 +39,7 @@ function simulate(run: Run, opts: { playing?: (t: number) => boolean; answer?: '
     for (const e of run.events) {
         while (next <= e[1]) { tick(next); next += 100_000; }
         if (e[0] === 'b') tracker.feedBlinkSample(e[1]);
+        else if (e[0] === 'v') tracker.feedValidation(e[1], e[2]);
         else if (e[0] === 'e') feed(tracker, e);
     }
     return { paused, returned, engine };
@@ -101,6 +102,55 @@ describe('DriftEngine on the real M0 run', () => {
     it('never pauses when the user has paused the video themselves', () => {
         const { paused } = simulate(run, { playing: () => false });
         expect(paused).toHaveLength(0);
+    });
+});
+
+describe('Long look-away pause and backup away rule', () => {
+    const run = loadRun();
+
+    it('never pauses for looking away during any cued test (notes up to 11 s)', () => {
+        const { paused } = simulate(run);
+        const looked = paused.filter((p) => p.reason === 'looked-away');
+        for (const p of looked) {
+            const inTrial = Object.entries(run.spans).find(([, s]) => p.pausedT >= s.from && p.pausedT <= s.to);
+            expect(inTrial, `look-away pause at ${p.pausedT}`).toBeUndefined();
+        }
+    });
+
+    it('pauses for the 35 s look-away between tests, marked at its start', () => {
+        const { paused } = simulate(run);
+        const looked = paused.filter((p) => p.reason === 'looked-away');
+        expect(looked.length).toBeGreaterThanOrEqual(1);
+        for (const p of looked) expect((p.pausedT - p.onsetT) / 1e6).toBeGreaterThanOrEqual(19.9);
+    });
+
+    it('can be switched off', () => {
+        const { paused } = simulate(run, { lookAwayPauseS: null });
+        expect(paused.filter((p) => p.reason === 'looked-away')).toHaveLength(0);
+    });
+
+    it('catches the 19 Nov leave (landmarks frozen) as away', () => {
+        const leave = loadRun('leave-2026-11-19');
+        const { paused } = simulate(leave);
+        const w = leave.windows.find((x) => x.trial === 'leave' && x.rep === 0)!;
+        const d = paused.find((p) => p.pausedT >= w.start && p.pausedT <= w.end + 2e6);
+        expect(d?.reason).toBe('away');
+    });
+
+    it('away when untracked with NoFaceFound/FaceTooHigh; never with FaceTooLow', async () => {
+        const { PresenceTracker } = await import('../src/renderer/sensing/presence');
+        const run1 = (code: string, seconds: number) => {
+            const tr = new PresenceTracker();
+            tr.setBaseline(0.22);
+            let t = 0;
+            for (let i = 0; i < 60; i++, t += 33_333) tr.feedLandmarks(t, 0.22, 2e-3);
+            tr.feedValidation(t, code);
+            return tr.snapshot(t + seconds * 1e6).state;
+        };
+        expect(run1('FaceTooHigh', 4.5)).toBe('away');
+        expect(run1('NoFaceFound', 4.5)).toBe('away');
+        expect(run1('FaceTooLow', 15)).toBe('looking-away');
+        expect(run1('FaceTooHigh', 2)).toBe('looking-away');
     });
 });
 

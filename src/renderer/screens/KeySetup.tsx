@@ -27,8 +27,8 @@ export function KeySetup({ status, onSaved }: Props) {
         <div className="column">
             <h1>Add your Presage API key</h1>
             <p className="muted">
-                Drift uses your own Presage SmartSpectra key. It is stored encrypted on this computer, never
-                inside the app or its code, and you can remove it from Settings.
+                Drift uses your own Presage SmartSpectra key. It is stored encrypted on this computer (never in
+                plain text, never inside the app) and you can remove it in Settings.
             </p>
             <div className="card">
                 <label htmlFor="api-key">API key</label>

@@ -26,6 +26,8 @@ export interface Settings {
     eyeBaseline: number | null;
     sensitivity: SensitivityPreset;
     rewindSeconds: number;
+    /** Pause after this many seconds without seeing the face; 0 = off. */
+    lookAwaySeconds: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
     eyeBaseline: null,
     sensitivity: 'standard',
     rewindSeconds: 30,
+    lookAwaySeconds: 20,
 };
 
 /** What the preload exposes on `window.drift`. */

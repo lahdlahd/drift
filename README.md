@@ -5,7 +5,7 @@ eyes stay closed or you leave your seat, it pauses the video, marks the moment
 and offers to rewind when you're back. It uses your webcam through
 [Presage SmartSpectra](https://smartspectra.presagetech.com/docs/).
 
-> Status: Milestone 2 is done: the lecture player, automatic pause, drift markers, rewind card and summary.
+> Status: Milestone 3 is done: lecture player, automatic pause, markers, rewind card, summary, Settings, and backup away rules.
 
 ## How Drift detects drifting
 
@@ -15,11 +15,15 @@ These rules were measured on real hardware in Milestone 0; see `test/presence.te
 | --- | --- | --- |
 | Eyes closed | Eye openness from SmartSpectra's 478 face landmarks below 60% of your own open-eye level | 3 s |
 | Left your seat | Face landmarks stop changing | 4 s |
-| Looking down or away | Face no longer tracked | Status only, never pauses |
+| Left your seat (backup) | Face not tracked and the SDK reports `NoFaceFound` or `FaceTooHigh` | 4 s |
+| Long look-away | Face not tracked at all, for example checking your phone | 20 s, adjustable or off |
+| Glancing at notes | Face not tracked briefly; the SDK reports `FaceTooLow` | Never pauses |
 
 SmartSpectra's own `blinking` flag only pulses for about 0.2 s, so it can't
 measure a sustained closure. Its validation status keeps reporting `OK` after
-you leave. Drift relies on the landmarks instead.
+you leave, and reports `FaceTooLow` both when you look down and when you get
+up. Drift relies on the landmarks instead. These findings come from recordings
+on real hardware, which the unit tests replay; see `test/fixtures`.
 
 ## Run it (Windows 11, macOS Apple Silicon, Linux x64)
 
@@ -53,7 +57,7 @@ webcam drops to 15 frames per second and the SDK stops.
 ## Privacy
 
 - **Camera.** It starts only when you click "Turn on camera". It's visible in the top bar while on. **Esc** or **Stop camera** turns it off.
-- **No video stored.** Frames go straight to the SmartSpectra SDK on your computer. Drift never records, saves or uploads video or images.
+- **No video stored.** Frames go only to the SmartSpectra SDK running inside Drift. Drift never records, saves or uploads video or images.
 - **Face metrics only.** Drift requests only these from the SDK, and turns SDK telemetry off (`enableTelemetry: false`).
 - **Presage contact.** The SDK still contacts Presage with your key to check it and your credits.
 - **API key.** It's stored encrypted with your operating system's protection (Electron `safeStorage`: DPAPI on Windows). It's never stored in plain text, never bundled in the app, and you can remove it in the app.

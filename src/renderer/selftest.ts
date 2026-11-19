@@ -144,10 +144,23 @@ async function playerTest() {
     r.markers = document.querySelectorAll('.track .marker').length;
     await shot('6-playing-with-marker');
 
+    // Switching screens must not restart the lecture.
+    await sleep(1200);
+    const posBefore = video.currentTime;
+    w.__driftGoto('settings');
+    await sleep(800);
+    await shot('8-settings');
+    w.__driftGoto('player');
+    const v2 = (await waitFor('video', 3000)) as HTMLVideoElement | null;
+    await sleep(800);
+    r.positionKept = v2 ? { before: +posBefore.toFixed(2), after: +v2.currentTime.toFixed(2) } : null;
+    if (v2) { v2.muted = true; await v2.play().catch(() => {}); }
+    const vid = v2 ?? video;
+
     // Looking down (no face data) must not pause.
     const before = engine.drifts.length;
     await sleep(3000);
-    r.noPauseWithoutFace = { pausedNow: video.paused, newDrifts: engine.drifts.length - before };
+    r.noPauseWithoutFace = { pausedNow: vid.paused, newDrifts: engine.drifts.length - before };
 
     q('end')?.click();
     r.summary = (await waitFor('summary-title', 3000))?.textContent ?? null;

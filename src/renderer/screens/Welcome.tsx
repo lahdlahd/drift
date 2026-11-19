@@ -28,7 +28,7 @@ export function Welcome({ onAccept, declined, onDecline }: Props) {
                 <div className="block">
                     <h3>What leaves your computer</h3>
                     <ul>
-                        <li>Camera frames are processed by the Presage SmartSpectra SDK on this computer.</li>
+                        <li>Camera frames go only to the Presage SmartSpectra SDK running inside Drift. Drift itself never saves or uploads them.</li>
                         <li>The SDK contacts Presage with your API key to check it and your credits. Presage's optional usage telemetry is turned off.</li>
                         <li>Your API key is stored encrypted on this computer. You can remove it at any time.</li>
                     </ul>

@@ -66,7 +66,7 @@ describe('SettingsStore', () => {
         const files = memFiles();
         const st = new SettingsStore('/s.json', files);
         expect(st.get()).toEqual(DEFAULT_SETTINGS);
-        const next = st.save({ consentAccepted: true, eyeBaseline: 0.21, sensitivity: 'strict', rewindSeconds: 999, evil: 'x' });
+        const next = st.save({ consentAccepted: true, eyeBaseline: 0.21, sensitivity: 'strict', rewindSeconds: 999, lookAwaySeconds: 7, evil: 'x' });
         expect(next).toEqual({ ...DEFAULT_SETTINGS, consentAccepted: true, eyeBaseline: 0.21, sensitivity: 'strict' });
         expect(new SettingsStore('/s.json', files).get()).toEqual(next);
     });
@@ -75,6 +75,12 @@ describe('SettingsStore', () => {
         const files = memFiles();
         files.write('/s.json', Buffer.from('{not json'));
         expect(new SettingsStore('/s.json', files).get()).toEqual(DEFAULT_SETTINGS);
+    });
+
+    it('accepts only the offered look-away values', () => {
+        expect(sanitizeSettings({ lookAwaySeconds: 0 }).lookAwaySeconds).toBe(0);
+        expect(sanitizeSettings({ lookAwaySeconds: 40 }).lookAwaySeconds).toBe(40);
+        expect(sanitizeSettings({ lookAwaySeconds: 13 }).lookAwaySeconds).toBe(20);
     });
 
     it('rejects out-of-range baselines', () => {

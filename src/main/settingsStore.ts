@@ -18,6 +18,7 @@ export function sanitizeSettings(input: unknown, base: Settings = DEFAULT_SETTIN
     if (typeof s.rewindSeconds === 'number' && s.rewindSeconds >= 5 && s.rewindSeconds <= 120) {
         out.rewindSeconds = Math.round(s.rewindSeconds);
     }
+    if (typeof s.lookAwaySeconds === 'number' && [0, 10, 20, 40].includes(s.lookAwaySeconds)) out.lookAwaySeconds = s.lookAwaySeconds;
     return out;
 }
 

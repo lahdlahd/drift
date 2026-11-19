@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DriftEngine, formatTime, type Drift } from '../drift/engine';
+import { formatTime, type Drift } from '../drift/engine';
+import { engine, playback } from '../drift/instance';
+import { LOOK_AWAY_OPTIONS, REWIND_OPTIONS, SENSITIVITY_LABEL, savePreferences } from '../preferences';
 import { sensing } from '../sensing/session';
 import { tracker, trackerNow, useSessionPhase, useValidation, useRates } from '../usePresence';
 import { bridge } from '../bridge';
 import { describeSdkError } from './CameraCheck';
-import { SENSITIVITY } from '../sensing/presence';
 import type { SensitivityPreset } from '../../shared/ipc';
 
 export interface Lecture { url: string; name: string }
@@ -13,16 +14,15 @@ export interface Lecture { url: string; name: string }
 // tracker with synthetic face data and marks the session as live with this flag.
 const selfTestSession = () => location.hash === '#selftest' && !!(window as unknown as { __driftFakeSession?: boolean }).__driftFakeSession;
 
-// One engine for the app's lifetime, so the summary can read it.
-export const engine = new DriftEngine();
+export { engine } from '../drift/instance';
 
 const POOR = new Set([5, 6, 11]); // TooDark, TooBright, FrameRateTooLow
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
-const REWINDS = [10, 20, 30, 45, 60];
 
 const REASON_TITLE: Record<Drift['reason'], string> = {
     'eyes-closed': 'Paused: your eyes were closed',
     away: 'Paused: you stepped away',
+    'looked-away': 'Paused: you looked away for a while',
     'signal-lost': 'Paused: Drift lost the camera signal',
 };
 
@@ -41,7 +41,7 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
     const [time, setTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [playing, setPlaying] = useState(false);
-    const [rate, setRate] = useState(1);
+    const [rate, setRate] = useState(playback.rate);
     const [card, setCard] = useState<Drift | null>(engine.current);
     const [, force] = useState(0);
     const [announce, setAnnounce] = useState('');
@@ -52,6 +52,7 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
     const lastAutoRetry = useRef(0);
     const [sensitivity, setSensitivity] = useState<SensitivityPreset>('standard');
     const [rewindSeconds, setRewindSeconds] = useState(30);
+    const [lookAway, setLookAway] = useState(20);
     const phase = useSessionPhase();
     const validation = useValidation();
     const rates = useRates();
@@ -61,7 +62,7 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
         void bridge().settings.get().then((s) => {
             setSensitivity(s.sensitivity);
             setRewindSeconds(s.rewindSeconds);
-            engine.configure({ rewindSeconds: s.rewindSeconds });
+            setLookAway(s.lookAwaySeconds);
         });
     }, []);
 
@@ -172,16 +173,16 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
         }
         if (lecture) URL.revokeObjectURL(lecture.url);
         engine.reset();
+        playback.position = 0;
         setCard(null);
         onOpen({ url: URL.createObjectURL(f), name: f.name });
     }
 
-    async function saveSettings(patch: { sensitivity?: SensitivityPreset; rewindSeconds?: number }) {
-        const s = await bridge().settings.save(patch);
+    async function saveSettings(patch: { sensitivity?: SensitivityPreset; rewindSeconds?: number; lookAwaySeconds?: number }) {
+        const s = await savePreferences(patch);
         setSensitivity(s.sensitivity);
         setRewindSeconds(s.rewindSeconds);
-        tracker.configure(SENSITIVITY[s.sensitivity]);
-        engine.configure({ rewindSeconds: s.rewindSeconds });
+        setLookAway(s.lookAwaySeconds);
     }
 
     if (!lecture) {
@@ -218,8 +219,13 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
                     src={lecture.url}
                     data-testid="video"
                     className={card ? 'dimmed' : ''}
-                    onTimeUpdate={(e) => { setTime(e.currentTarget.currentTime); setDuration(knownDuration(e.currentTarget)); }}
-                    onLoadedMetadata={(e) => setDuration(knownDuration(e.currentTarget))}
+                    onTimeUpdate={(e) => { setTime(e.currentTarget.currentTime); playback.position = e.currentTarget.currentTime; setDuration(knownDuration(e.currentTarget)); }}
+                    onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        setDuration(knownDuration(v));
+                        v.playbackRate = playback.rate;
+                        if (resumeAt == null && playback.position > 0) { v.currentTime = playback.position; setTime(playback.position); }
+                    }}
                     onDurationChange={(e) => setDuration(knownDuration(e.currentTarget))}
                     onPlay={() => setPlaying(true)}
                     onPause={() => setPlaying(false)}
@@ -227,9 +233,9 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
                     onClick={togglePlay}
                 />
                 {card && (
-                    <div className="drift-card" role="dialog" aria-labelledby="drift-title" data-testid="drift-card">
+                    <div className="drift-card" role="alertdialog" aria-modal="true" aria-labelledby="drift-title" aria-describedby="drift-desc" data-testid="drift-card">
                         <h2 id="drift-title">{REASON_TITLE[card.reason]}</h2>
-                        <p className="muted">{card.reason === 'signal-lost' ? `Stopped at ${formatTime(card.onsetVideo)}.` : `You drifted at ${formatTime(card.onsetVideo)}.`}</p>
+                        <p className="muted" id="drift-desc">{card.reason === 'signal-lost' ? `Stopped at ${formatTime(card.onsetVideo)}.` : `You drifted at ${formatTime(card.onsetVideo)}.`}</p>
                         {card.reason === 'away' && card.returnedT === null && <p className="waiting">Waiting for you…</p>}
                         {card.reason === 'signal-lost' && lostInfo && (
                             <p className="waiting">{lostInfo.message}{lostInfo.reconnecting ? ' Reconnecting…' : ''}</p>
@@ -260,7 +266,7 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
                         <div key={d.id} className="marker" style={{ left: pct(d.onsetVideo) }} title={`Drifted at ${formatTime(d.onsetVideo)}`} />
                     ))}
                 </div>
-                <select aria-label="Playback speed" value={rate} onChange={(e) => { const r = Number(e.target.value); setRate(r); if (videoRef.current) videoRef.current.playbackRate = r; }}>
+                <select aria-label="Playback speed" value={rate} onChange={(e) => { const r = Number(e.target.value); setRate(r); playback.rate = r; if (videoRef.current) videoRef.current.playbackRate = r; }}>
                     {SPEEDS.map((s) => <option key={s} value={s}>{s}×</option>)}
                 </select>
                 <button className="btn" onClick={() => setSettingsOpen((o) => !o)} aria-expanded={settingsOpen}>Settings</button>
@@ -272,13 +278,15 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
                 <div className="card settings" role="dialog" aria-label="Settings">
                     <label htmlFor="sens">Sensitivity</label>
                     <select id="sens" value={sensitivity} onChange={(e) => void saveSettings({ sensitivity: e.target.value as SensitivityPreset })}>
-                        <option value="relaxed">Relaxed: eyes closed 5 s, away 6 s</option>
-                        <option value="standard">Standard: eyes closed 3 s, away 4 s</option>
-                        <option value="strict">Strict: eyes closed 2 s, away 3 s</option>
+                        {(Object.keys(SENSITIVITY_LABEL) as SensitivityPreset[]).map((k) => <option key={k} value={k}>{SENSITIVITY_LABEL[k]}</option>)}
+                    </select>
+                    <label htmlFor="look" style={{ marginTop: 12 }}>Pause when Drift can't see your face</label>
+                    <select id="look" value={lookAway} onChange={(e) => void saveSettings({ lookAwaySeconds: Number(e.target.value) })}>
+                        {LOOK_AWAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                     <label htmlFor="rew" style={{ marginTop: 12 }}>Rewind to before the drift by</label>
                     <select id="rew" value={rewindSeconds} onChange={(e) => void saveSettings({ rewindSeconds: Number(e.target.value) })}>
-                        {REWINDS.map((r) => <option key={r} value={r}>{r} seconds</option>)}
+                        {REWIND_OPTIONS.map((r) => <option key={r} value={r}>{r} seconds</option>)}
                     </select>
                     <div className="row"><button className="btn" onClick={() => setSettingsOpen(false)}>Done</button></div>
                 </div>

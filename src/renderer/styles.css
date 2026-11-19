@@ -135,3 +135,10 @@ th { color: var(--text-2); font-weight: 500; }
 .file-name { margin-top: 8px; }
 .settings { position: fixed; right: 24px; bottom: 90px; width: 360px; z-index: 10; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Settings page */
+.settings-page label.spaced, .settings label.spaced { margin-top: var(--s2); }
+.settings-page .card h2 { margin-bottom: var(--s2); }
+.settings-page .hint { margin: 6px 0 0; }
+.facts { margin: 0; padding-left: 18px; color: var(--text-2); }
+.facts li { margin-bottom: 6px; }

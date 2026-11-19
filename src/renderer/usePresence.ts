@@ -1,8 +1,7 @@
 // React hooks over the sensing session and the presence tracker.
 import { useEffect, useRef, useState } from 'react';
 import { sensing, type Rates, type SessionPhase, type ValidationInfo } from './sensing/session';
-import { PresenceTracker, SENSITIVITY, type PresenceSnapshot } from './sensing/presence';
-import type { SensitivityPreset } from '../shared/ipc';
+import { PresenceTracker, type PresenceSnapshot } from './sensing/presence';
 
 export const tracker = new PresenceTracker();
 
@@ -19,11 +18,9 @@ sensing.on('landmarks', (t, ear, fp) => {
     tracker.feedLandmarks(t, ear, fp);
 });
 sensing.on('blink', (t) => tracker.feedBlinkSample(t));
+sensing.on('validation', (v) => tracker.feedValidation(v.t, v.name));
 sensing.on('phase', (p) => { if (p === 'off' || p === 'starting') { tracker.reset(); pipelineDelayUs = null; } });
 
-export function applySensitivity(preset: SensitivityPreset) {
-    tracker.configure(SENSITIVITY[preset]);
-}
 
 export function useSessionPhase(): SessionPhase {
     const [phase, setPhase] = useState<SessionPhase>(sensing.phase);

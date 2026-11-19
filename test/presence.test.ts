@@ -34,6 +34,7 @@ function replay(tracker: PresenceTracker) {
     for (const e of events) {
         while (nextTick <= e[1]) { tick(nextTick); nextTick += 100_000; }
         if (e[0] === 'b') tracker.feedBlinkSample(e[1]);
+        else if (e[0] === 'v') tracker.feedValidation(e[1], e[2]);
         else if (e[0] === 'e') feed(tracker, e);
     }
     return episodes;

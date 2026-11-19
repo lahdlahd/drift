@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { bridge } from './bridge';
 import { sensing } from './sensing/session';
-import { applySensitivity, tracker, useCameraOn, usePresence } from './usePresence';
+import { tracker, useCameraOn, usePresence } from './usePresence';
+import { applyPreferences } from './preferences';
+import { SettingsScreen } from './screens/SettingsScreen';
 import { Welcome } from './screens/Welcome';
 import { KeySetup } from './screens/KeySetup';
 import { CameraCheck } from './screens/CameraCheck';
 import { DebugPanel } from './screens/DebugPanel';
 import { Player, engine, type Lecture } from './screens/Player';
+import { playback } from './drift/instance';
 import { Summary } from './screens/Summary';
 import type { KeyStatus, Settings } from '../shared/ipc';
 
-type Screen = 'loading' | 'welcome' | 'key' | 'check' | 'player' | 'summary' | 'signals';
+type Screen = 'loading' | 'welcome' | 'key' | 'check' | 'player' | 'summary' | 'settings' | 'signals';
 
 export function App() {
     const [screen, setScreen] = useState<Screen>('loading');
@@ -36,7 +39,7 @@ export function App() {
                 const [s, k] = await Promise.all([bridge().settings.get(), bridge().key.status()]);
                 setSettings(s);
                 setKeyStatus(k);
-                applySensitivity(s.sensitivity);
+                applyPreferences(s);
                 if (s.eyeBaseline) tracker.setBaseline(s.eyeBaseline);
                 route(s, k);
             } catch (e) {
@@ -70,6 +73,14 @@ export function App() {
         setScreen('check');
     }
 
+    async function withdrawConsent() {
+        await sensing.stop();
+        const s = await bridge().settings.save({ consentAccepted: false });
+        setSettings(s);
+        setDeclined(false);
+        setScreen('welcome');
+    }
+
     async function removeKey() {
         await sensing.stop();
         const k = await bridge().key.remove();
@@ -89,16 +100,16 @@ export function App() {
             <header className="topbar">
                 <div className="topbar-left">
                     <div className="wordmark">Drift<span>.</span></div>
-                    {(screen === 'player' || screen === 'summary' || screen === 'signals') && (
+                    {(screen === 'player' || screen === 'summary' || screen === 'settings' || screen === 'signals') && (
                         <nav className="nav" aria-label="Main">
-                            <button className={`nav-btn ${screen === 'player' ? 'active' : ''}`} onClick={() => setScreen('player')}>Lecture</button>
-                            <button className={`nav-btn ${screen === 'summary' ? 'active' : ''}`} onClick={() => setScreen('summary')}>Summary</button>
-                            <button className={`nav-btn ${screen === 'signals' ? 'active' : ''}`} onClick={() => setScreen('signals')}>Live signals</button>
+                            <button className={`nav-btn ${screen === 'player' ? 'active' : ''}`} aria-current={screen === 'player' ? 'page' : undefined} onClick={() => setScreen('player')}>Lecture</button>
+                            <button className={`nav-btn ${screen === 'summary' ? 'active' : ''}`} aria-current={screen === 'summary' ? 'page' : undefined} onClick={() => setScreen('summary')}>Summary</button>
+                            <button className={`nav-btn ${screen === 'settings' || screen === 'signals' ? 'active' : ''}`} aria-current={screen === 'settings' ? 'page' : undefined} onClick={() => setScreen('settings')}>Settings</button>
                         </nav>
                     )}
                 </div>
                 <div className="topbar-right">
-                    <span className={`pill ${cameraOn ? 'on' : ''}`} data-testid="camera-pill" role="status"><span className="dot" />{pillText}</span>
+                    <span className={`pill ${cameraOn ? 'on' : ''}`} data-testid="camera-pill"><span className="dot" />{pillText}</span>
                     {cameraOn && <button className="btn" onClick={() => void sensing.stop()} title="Esc">Stop camera</button>}
                 </div>
             </header>
@@ -119,11 +130,21 @@ export function App() {
                 )}
                 {screen === 'summary' && (
                     <Summary
+                        hasLecture={!!lecture}
                         lectureName={lecture?.name ?? null}
                         drifts={engine.drifts}
                         onWatchFrom={(t) => { setResumeAt(t); setScreen('player'); }}
-                        onNewLecture={() => { if (lecture) URL.revokeObjectURL(lecture.url); engine.reset(); setLecture(null); setScreen('player'); }}
+                        onNewLecture={() => { if (lecture) URL.revokeObjectURL(lecture.url); engine.reset(); playback.position = 0; setLecture(null); setScreen('player'); }}
                         onBack={() => setScreen('player')}
+                    />
+                )}
+                {screen === 'settings' && (
+                    <SettingsScreen
+                        onCameraCheck={() => setScreen('check')}
+                        onLiveSignals={() => setScreen('signals')}
+                        onReplaceKey={() => { void sensing.stop(); setScreen('key'); }}
+                        onRemoveKey={() => void removeKey()}
+                        onWithdrawConsent={() => void withdrawConsent()}
                     />
                 )}
                 {screen === 'signals' && <DebugPanel onRecalibrate={() => setScreen('check')} onRemoveKey={() => void removeKey()} />}
