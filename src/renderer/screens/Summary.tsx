@@ -8,7 +8,7 @@ interface Props {
     onBack: () => void;
 }
 
-const REASON: Record<Drift['reason'], string> = { 'eyes-closed': 'Eyes closed', away: 'Stepped away' };
+const REASON: Record<Drift['reason'], string> = { 'eyes-closed': 'Eyes closed', away: 'Stepped away', 'signal-lost': 'Camera signal lost' };
 const ACTION: Record<string, string> = { rewind: 'Rewound', continue: 'Continued', dismiss: 'Dismissed' };
 
 function awayFor(d: Drift): string {

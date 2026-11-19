@@ -29,3 +29,24 @@ export function eyeOpenness(points: readonly Point[] | null | undefined): EyeOpe
     if (right == null || left == null) return null;
     return { left, right, mean: (left + right) / 2 };
 }
+
+/**
+ * How much the face moved since the previous frame: mean |dx|+|dy| over a spread of
+ * landmarks, divided by the distance between the outer eye corners (so it does not
+ * depend on resolution or how close you sit). A tracked face always jitters a little;
+ * when the face is gone SmartSpectra repeats the last landmarks, so this drops to ~0.
+ */
+export function landmarkMotion(prev: readonly Point[] | null, cur: readonly Point[]): number {
+    if (!prev || prev.length !== cur.length) return Infinity;
+    let sum = 0, n = 0;
+    for (let i = 0; i < cur.length; i += 7) {
+        const a = prev[i], b = cur[i];
+        if (!a || !b) continue;
+        sum += Math.abs((b.x ?? 0) - (a.x ?? 0)) + Math.abs((b.y ?? 0) - (a.y ?? 0));
+        n++;
+    }
+    const l = cur[33], r = cur[263];
+    const scale = l && r ? Math.hypot((l.x ?? 0) - (r.x ?? 0), (l.y ?? 0) - (r.y ?? 0)) : 0;
+    if (!n || !scale) return Infinity;
+    return sum / n / scale;
+}

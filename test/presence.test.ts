@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { PresenceTracker, computeBaseline, type PresenceState } from '../src/renderer/sensing/presence';
 
 // Real-hardware regression: Joel's Milestone 0 run, replayed through the tracker.
-import { loadRun, type Ev, type CueWindow } from './replay';
+import { feed, loadRun, type Ev, type CueWindow } from './replay';
 
 let events: Ev[];
 let windows: CueWindow[];
@@ -34,7 +34,7 @@ function replay(tracker: PresenceTracker) {
     for (const e of events) {
         while (nextTick <= e[1]) { tick(nextTick); nextTick += 100_000; }
         if (e[0] === 'b') tracker.feedBlinkSample(e[1]);
-        else if (e[0] === 'e') tracker.feedLandmarks(e[1], (e[2] + e[3]) / 2, e[2] * 1000 + e[3]);
+        else if (e[0] === 'e') feed(tracker, e);
     }
     return episodes;
 }

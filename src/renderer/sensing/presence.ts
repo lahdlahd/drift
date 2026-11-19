@@ -21,6 +21,8 @@ export interface PresenceConfig {
     eyesClosedS: number;
     awayS: number;
     lookingAwayS: number;
+    /** Relative landmark movement per frame below which the face counts as frozen. */
+    stillMotion: number;
 }
 
 export const SENSITIVITY: Record<SensitivityPreset, Pick<PresenceConfig, 'eyesClosedS' | 'awayS'>> = {
@@ -34,6 +36,7 @@ export const DEFAULT_CONFIG: PresenceConfig = {
     reopenFactor: 0.7,
     ...SENSITIVITY.standard,
     lookingAwayS: 1.0,
+    stillMotion: 1e-4,
 };
 
 export interface PresenceSnapshot {
@@ -49,6 +52,8 @@ export interface PresenceSnapshot {
     closedBelow: number | null;
     /** Start of the current eyes-closed or away episode, in µs. */
     since: number | null;
+    /** Latest relative landmark movement (diagnostics). */
+    motion: number | null;
 }
 
 const US = 1e6;
@@ -56,7 +61,7 @@ const US = 1e6;
 export class PresenceTracker {
     private cfg: PresenceConfig;
     private baseline: number | null = null;
-    private lastEarValue: number | null = null;
+    private lastMotion: number | null = null;
     private lastEar: number | null = null;
     private lastLandmarkT: number | null = null;
     private lastChangeT: number | null = null;
@@ -76,14 +81,14 @@ export class PresenceTracker {
     get eyeBaseline(): number | null { return this.baseline; }
 
     reset() {
-        this.lastEarValue = null; this.lastEar = null; this.lastLandmarkT = null; this.lastChangeT = null;
+        this.lastMotion = null; this.lastEar = null; this.lastLandmarkT = null; this.lastChangeT = null;
         this.lastBlinkT = null; this.closedSince = null; this.stateSince = null; this.prevState = 'no-signal';
     }
 
-    /** One landmark frame. `fingerprint` is any number that changes whenever the landmarks change. */
-    feedLandmarks(t: number, ear: number | null, fingerprint: number) {
-        const changed = this.lastEarValue === null || fingerprint !== this.lastEarValue;
-        this.lastEarValue = fingerprint;
+    /** One landmark frame. `motion` = relative movement since the previous frame (see landmarkMotion). */
+    feedLandmarks(t: number, ear: number | null, motion: number) {
+        const changed = this.lastLandmarkT === null || !(motion <= this.cfg.stillMotion);
+        this.lastMotion = motion;
         this.lastLandmarkT = t;
         if (changed) this.lastChangeT = t;
         if (ear == null) return;
@@ -131,6 +136,7 @@ export class PresenceTracker {
             ear: this.lastEar,
             closedBelow: this.baseline == null ? null : this.cfg.closeFactor * this.baseline,
             since: this.stateSince,
+            motion: this.lastMotion,
         };
     }
 }

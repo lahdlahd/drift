@@ -14,7 +14,7 @@
 
 import type { PresenceSnapshot } from '../sensing/presence';
 
-export type DriftReason = 'eyes-closed' | 'away';
+export type DriftReason = 'eyes-closed' | 'away' | 'signal-lost';
 export type DriftAction = 'rewind' | 'continue' | 'dismiss';
 
 export interface Drift {
@@ -131,6 +131,24 @@ export class DriftEngine {
         this.watchingSince = null;
         events.push({ type: 'pause', drift });
         return events;
+    }
+
+    /**
+     * The camera or SDK stopped while the lecture was playing (e.g. the frame rate fell
+     * when the user moved). Pause and mark it like a drift; "back" is detected the same
+     * way once sensing restarts.
+     */
+    interrupt(now: number, videoTime: number): EngineEvent[] {
+        if (this.current) return [];
+        const drift: Drift = {
+            id: this.nextId++, reason: 'signal-lost', onsetVideo: videoTime, pausedAtVideo: videoTime,
+            onsetT: now, pausedT: now, returnedT: null, action: null,
+            rewindTo: Math.max(0, videoTime - this.opts.rewindSeconds),
+        };
+        this.current = drift;
+        this.drifts.push(drift);
+        this.watchingSince = null;
+        return [{ type: 'pause', drift }];
     }
 
     /** The user's answer to the card. Returns where to seek (or null to stay). */

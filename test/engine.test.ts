@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadRun, type Run } from './replay';
+import { feed, loadRun, type Run } from './replay';
 import { PresenceTracker, computeBaseline } from '../src/renderer/sensing/presence';
 import { DriftEngine, formatTime, type Drift } from '../src/renderer/drift/engine';
 
@@ -39,7 +39,7 @@ function simulate(run: Run, opts: { playing?: (t: number) => boolean; answer?: '
     for (const e of run.events) {
         while (next <= e[1]) { tick(next); next += 100_000; }
         if (e[0] === 'b') tracker.feedBlinkSample(e[1]);
-        else if (e[0] === 'e') tracker.feedLandmarks(e[1], (e[2] + e[3]) / 2, e[2] * 1000 + e[3]);
+        else if (e[0] === 'e') feed(tracker, e);
     }
     return { paused, returned, engine };
 }
@@ -111,5 +111,25 @@ describe('formatTime', () => {
         expect(formatTime(3725)).toBe('1:02:05');
         expect(formatTime(Infinity)).toBe('--:--');
         expect(formatTime(NaN)).toBe('--:--');
+    });
+});
+
+describe('DriftEngine.interrupt (SDK stopped mid-lecture)', () => {
+    it('pauses once, marks the spot, and waits for the user to be back', async () => {
+        const { PresenceTracker } = await import('../src/renderer/sensing/presence');
+        const engine = new DriftEngine({ rewindSeconds: 30 });
+        const evs = engine.interrupt(10e6, 95);
+        expect(evs).toHaveLength(1);
+        expect(evs[0]!.drift).toMatchObject({ reason: 'signal-lost', onsetVideo: 95, rewindTo: 65 });
+        expect(engine.interrupt(11e6, 96)).toHaveLength(0); // only one card at a time
+        const tr = new PresenceTracker();
+        tr.setBaseline(0.22);
+        let returned = false;
+        for (let t = 12e6; t < 15e6; t += 33_333) {
+            tr.feedLandmarks(t, 0.22, 2e-3);
+            for (const e of engine.tick(t, tr.snapshot(t), { playing: false, time: 95 })) if (e.type === 'returned') returned = true;
+        }
+        expect(returned).toBe(true);
+        expect(engine.answer('rewind')).toBe(65);
     });
 });

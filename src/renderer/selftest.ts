@@ -94,7 +94,7 @@ async function feedFace(ear: number, ms: number) {
     let i = 0;
     while (performance.now() < end) {
         const t = trackerNow();
-        tracker.feedLandmarks(t, ear + (i % 2) * 0.001, i++);
+        tracker.feedLandmarks(t, ear + (i++ % 2) * 0.001, 0.01);
         tracker.feedBlinkSample(t);
         await sleep(33);
     }

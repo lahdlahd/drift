@@ -106,6 +106,7 @@ export function DebugPanel({ onRecalibrate, onRemoveKey }: Props) {
                                 {snap.closedBelow != null && <div className="line" style={{ left: pct(snap.closedBelow) }} />}
                             </div>
                         </dd>
+                        <dt>Face movement</dt><dd>{snap.motion == null ? '—' : snap.motion === Infinity ? 'first frame' : `${(snap.motion * 1000).toFixed(2)} (frozen below ${(tracker.config.stillMotion * 1000).toFixed(2)})`}</dd>
                         <dt>Baseline (your open eyes)</dt><dd>{tracker.eyeBaseline?.toFixed(3) ?? 'not measured'}</dd>
                     </dl>
                 </div>

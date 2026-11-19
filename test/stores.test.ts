@@ -98,3 +98,36 @@ describe('eyeOpenness', () => {
         expect(eyeOpenness(pts.slice(0, 100))).toBeNull();
     });
 });
+
+import { landmarkMotion } from '../src/renderer/sensing/ear';
+import { PresenceTracker } from '../src/renderer/sensing/presence';
+
+describe('landmarkMotion and the frozen-face rule', () => {
+    // A face mesh with eye corners 60 px apart.
+    const face = (jitter: (i: number) => number) =>
+        Array.from({ length: 478 }, (_, i) => ({ x: 200 + (i % 40) * 3 + jitter(i), y: 150 + Math.floor(i / 40) * 4 + jitter(i + 1) }))
+            .map((p, i) => (i === 33 ? { x: 230, y: 200 } : i === 263 ? { x: 290, y: 200 } : p));
+
+    it('is ~0 for repeated landmarks, even with float noise', () => {
+        const a = face(() => 0);
+        expect(landmarkMotion(a, a)).toBe(0);
+        const noisy = face((i) => (i % 3) * 1e-6);
+        expect(landmarkMotion(a, noisy)).toBeLessThan(1e-6);
+        expect(landmarkMotion(null, a)).toBe(Infinity);
+    });
+
+    it('is well above the threshold for normal tracking jitter (0.3 px)', () => {
+        const a = face(() => 0);
+        const b = face((i) => ((i * 7919) % 7 - 3) * 0.1);
+        expect(landmarkMotion(a, b)).toBeGreaterThan(1e-3);
+    });
+
+    it('reports away when the SDK repeats landmarks with float noise (the M2 bug)', () => {
+        const tr = new PresenceTracker();
+        tr.setBaseline(0.22);
+        let t = 0;
+        for (let i = 0; i < 60; i++, t += 33_333) tr.feedLandmarks(t, 0.22, 2e-3);   // present, 2 s
+        for (let i = 0; i < 150; i++, t += 33_333) tr.feedLandmarks(t, 0.23, 3e-7);  // gone, 5 s of repeats
+        expect(tr.snapshot(t).state).toBe('away');
+    });
+});

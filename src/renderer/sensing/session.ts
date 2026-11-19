@@ -6,7 +6,7 @@ import {
     SmartSpectraSDK, ProcessingStatus, ValidationCode, faceMetrics,
 } from '@smartspectra/node-sdk/renderer';
 import { decodeMetrics } from '@smartspectra/node-sdk/messages';
-import { eyeOpenness, type Point } from './ear';
+import { eyeOpenness, landmarkMotion, type Point } from './ear';
 
 export type SessionPhase = 'off' | 'starting' | 'running' | 'stopping' | 'error';
 
@@ -17,7 +17,8 @@ export interface Rates { camera: number; sent: number; dropped: number; blink: n
 export interface SessionEvents {
     phase: (p: SessionPhase) => void;
     validation: (v: ValidationInfo) => void;
-    landmarks: (t: number, ear: number | null, fingerprint: number) => void;
+    /** `motion`: mean landmark movement since the previous frame, relative to eye-corner distance (Infinity for the first frame). */
+    landmarks: (t: number, ear: number | null, motion: number) => void;
     blink: (t: number) => void;
     rates: (r: Rates) => void;
     error: (e: SessionError) => void;
@@ -36,16 +37,6 @@ function tsToNumber(ts: unknown): number {
     return typeof maybeLong.toNumber === 'function' ? maybeLong.toNumber() : Number(ts);
 }
 
-/** Cheap fingerprint: changes whenever any of a spread of landmarks moves. */
-function fingerprint(points: readonly Point[]): number {
-    let f = 0;
-    for (let i = 0; i < points.length; i += 37) {
-        const p = points[i];
-        if (p) f = (f * 31 + (p.x ?? 0) * 1000 + (p.y ?? 0) * 7919) % 1e12;
-    }
-    return f;
-}
-
 type Listener<K extends keyof SessionEvents> = SessionEvents[K];
 
 export class SensingSession {
@@ -55,6 +46,7 @@ export class SensingSession {
     private rateTimer: ReturnType<typeof setInterval> | null = null;
     private counts = { camera: 0, sent: 0, dropped: 0, blink: 0, landmarks: 0 };
     private gen = 0;
+    private prevPoints: Point[] | null = null;
     private listeners: { [K in keyof SessionEvents]: Set<Listener<K>> } = {
         phase: new Set(), validation: new Set(), landmarks: new Set(), blink: new Set(), rates: new Set(), error: new Set(),
     };
@@ -90,6 +82,8 @@ export class SensingSession {
             audio: false,
             video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
         });
+        const track = this.stream.getVideoTracks()[0];
+        try { await track?.applyConstraints({ frameRate: { min: 24, ideal: 30 } }); } catch { /* camera cannot promise a minimum */ }
         this.startFrameCounter();
         return this.stream;
     }
@@ -182,7 +176,9 @@ export class SensingSession {
             if (pts.length < 400) continue;
             this.counts.landmarks++;
             const e = eyeOpenness(pts);
-            this.emit('landmarks', tsToNumber(l.timestamp), e ? e.mean : null, fingerprint(pts));
+            const motion = landmarkMotion(this.prevPoints, pts);
+            this.prevPoints = pts;
+            this.emit('landmarks', tsToNumber(l.timestamp), e ? e.mean : null, motion);
         }
     }
 
@@ -201,6 +197,7 @@ export class SensingSession {
         if (this.stream) { this.stream.getTracks().forEach((t) => t.stop()); this.stream = null; }
         this.lastValidation = null;
         this.lastRates = null;
+        this.prevPoints = null;
         this.setPhase('off');
     }
 }

@@ -3,6 +3,7 @@ import { DriftEngine, formatTime, type Drift } from '../drift/engine';
 import { sensing } from '../sensing/session';
 import { tracker, trackerNow, useSessionPhase, useValidation, useRates } from '../usePresence';
 import { bridge } from '../bridge';
+import { describeSdkError } from './CameraCheck';
 import { SENSITIVITY } from '../sensing/presence';
 import type { SensitivityPreset } from '../../shared/ipc';
 
@@ -22,6 +23,7 @@ const REWINDS = [10, 20, 30, 45, 60];
 const REASON_TITLE: Record<Drift['reason'], string> = {
     'eyes-closed': 'Paused: your eyes were closed',
     away: 'Paused: you stepped away',
+    'signal-lost': 'Paused: Drift lost the camera signal',
 };
 
 interface Props {
@@ -46,6 +48,8 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
     const [dragOver, setDragOver] = useState(false);
     const [fileError, setFileError] = useState<string | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [lostInfo, setLostInfo] = useState<{ message: string; reconnecting: boolean; failed: boolean } | null>(null);
+    const lastAutoRetry = useRef(0);
     const [sensitivity, setSensitivity] = useState<SensitivityPreset>('standard');
     const [rewindSeconds, setRewindSeconds] = useState(30);
     const phase = useSessionPhase();
@@ -94,10 +98,40 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
         return () => clearInterval(id);
     }, [lecture]);
 
+    // If SmartSpectra stops mid-lecture, pause, explain, and reconnect once by itself.
+    useEffect(() => sensing.on('error', (e) => {
+        const v = videoRef.current;
+        if (!v || !lecture) return;
+        const wasPlaying = !v.paused && !v.ended;
+        if (!wasPlaying && !engine.awaitingAnswer) return;
+        if (wasPlaying) {
+            const evs = engine.interrupt(trackerNow(), v.currentTime);
+            v.pause();
+            if (evs[0]) setCard(evs[0].drift);
+            setAnnounce('Paused: Drift lost the camera signal.');
+        }
+        const message = describeSdkError(e);
+        const canRetry = e.retryable && Date.now() - lastAutoRetry.current > 30_000;
+        setLostInfo({ message, reconnecting: canRetry, failed: !canRetry });
+        if (!canRetry) return;
+        lastAutoRetry.current = Date.now();
+        setTimeout(async () => {
+            try {
+                const key = await bridge().key.load();
+                if (!key) throw new Error('no key');
+                if (sensing.phase === 'off') await sensing.start(key);
+                setLostInfo(null);
+            } catch {
+                setLostInfo({ message, reconnecting: false, failed: true });
+            }
+        }, 1500);
+    }), [lecture]);
+
     const answer = useCallback((action: 'rewind' | 'continue' | 'dismiss') => {
         const v = videoRef.current;
         const seek = engine.answer(action);
         setCard(null);
+        setLostInfo(null);
         if (!v) return;
         if (seek != null) v.currentTime = seek;
         if (action !== 'dismiss') void v.play();
@@ -195,8 +229,14 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
                 {card && (
                     <div className="drift-card" role="dialog" aria-labelledby="drift-title" data-testid="drift-card">
                         <h2 id="drift-title">{REASON_TITLE[card.reason]}</h2>
-                        <p className="muted">You drifted at {formatTime(card.onsetVideo)}.</p>
+                        <p className="muted">{card.reason === 'signal-lost' ? `Stopped at ${formatTime(card.onsetVideo)}.` : `You drifted at ${formatTime(card.onsetVideo)}.`}</p>
                         {card.reason === 'away' && card.returnedT === null && <p className="waiting">Waiting for you…</p>}
+                        {card.reason === 'signal-lost' && lostInfo && (
+                            <p className="waiting">{lostInfo.message}{lostInfo.reconnecting ? ' Reconnecting…' : ''}</p>
+                        )}
+                        {card.reason === 'signal-lost' && lostInfo?.failed && (
+                            <div className="row center"><button className="btn" onClick={onNeedCamera}>Turn camera back on</button></div>
+                        )}
                         <div className="row center">
                             <button className="btn primary" data-testid="card-rewind" autoFocus onClick={() => answer('rewind')}>Rewind to {formatTime(card.rewindTo)}</button>
                             <button className="btn" data-testid="card-continue" onClick={() => answer('continue')}>Continue from {formatTime(card.pausedAtVideo)}</button>

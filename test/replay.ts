@@ -33,3 +33,15 @@ export function loadRun(): Run {
     cached = { events, windows, spans };
     return cached;
 }
+
+/**
+ * Feeds one recorded landmark frame. The fixture holds eye-openness ratios rounded to
+ * 4 decimals, not raw landmarks, so movement is approximated as "the ratios changed".
+ */
+const lastByTracker = new WeakMap<object, string>();
+export function feed(tracker: { feedLandmarks(t: number, ear: number | null, motion: number): void }, e: ['e', number, number, number]) {
+    const key = `${e[2]}:${e[3]}`;
+    const moved = lastByTracker.get(tracker) !== key;
+    lastByTracker.set(tracker, key);
+    tracker.feedLandmarks(e[1], (e[2] + e[3]) / 2, moved ? 1 : 0);
+}
