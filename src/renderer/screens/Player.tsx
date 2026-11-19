@@ -57,7 +57,8 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
     const phase = useSessionPhase();
     const validation = useValidation();
     const rates = useRates();
-    const watching = phase === 'running' || selfTestSession();
+    // "Watching" needs both a running SDK session and a live camera track.
+    const watching = (phase === 'running' && sensing.cameraOn) || selfTestSession();
 
     useEffect(() => {
         void bridge().settings.get().then((s) => {
@@ -82,7 +83,7 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
             const v = videoRef.current;
             if (!v || !lecture) return;
             const isPlaying = !v.paused && !v.ended;
-            const sessionOk = sensing.phase === 'running' || selfTestSession();
+            const sessionOk = (sensing.phase === 'running' && sensing.cameraOn) || selfTestSession();
             const now = trackerNow();
             const snap = tracker.snapshot(now);
             const events = engine.tick(now, sessionOk ? snap : { ...snap, state: 'no-signal' }, { playing: isPlaying && sessionOk, time: v.currentTime });
@@ -213,7 +214,7 @@ export function Player({ lecture, onOpen, onEnd, onNeedCamera, resumeAt, onResum
     return (
         <div className="player">
             {!watching && <CameraBanner onNeedCamera={onNeedCamera} />}
-            {poor && <div className="banner warn" role="status">Signal poor: {validation?.hint || 'add light in front of your face'}. Drift may miss drifts until it improves.</div>}
+            {poor && <div className="banner warn" role="status">Signal poor: {(validation?.hint || 'add light in front of your face').replace(/[.\s]+$/, '')}. Drift may miss drifts until it improves.</div>}
             <div className="stage">
                 <video
                     ref={videoRef}

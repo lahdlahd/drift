@@ -23,6 +23,7 @@ export function describeSdkError(e: SessionError): string {
         case E.kMetricNotAuthorized: return 'Your Presage key is not enabled for face metrics.';
         case E.kSustainedLowFrameRate: return 'The camera frame rate dropped too low. Add light in front of your face and try again.';
         case E.kInputUnavailable: return 'The camera is unavailable. Close other apps that use it, then try again.';
+        case 'camera-ended': return 'The camera was turned off or disconnected (for example in Windows camera privacy settings). Turn it back on, then restart the camera.';
         default: return `SmartSpectra stopped: ${e.message}`;
     }
 }

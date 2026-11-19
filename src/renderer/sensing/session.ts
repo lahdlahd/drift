@@ -84,6 +84,14 @@ export class SensingSession {
         });
         const track = this.stream.getVideoTracks()[0];
         try { await track?.applyConstraints({ frameRate: { min: 24, ideal: 30 } }); } catch { /* camera cannot promise a minimum */ }
+        // Windows can cut the camera at any time (privacy toggle, unplugged, taken by
+        // another app). Treat that as the end of the session, never as "still watching".
+        const opened = this.stream;
+        track?.addEventListener('ended', () => {
+            if (this.stream !== opened) return;
+            this.emit('error', { code: 'camera-ended', message: 'The camera was turned off or disconnected.', retryable: false });
+            void this.stop();
+        });
         this.startFrameCounter();
         return this.stream;
     }
