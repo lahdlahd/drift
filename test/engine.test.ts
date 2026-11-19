@@ -183,3 +183,47 @@ describe('DriftEngine.interrupt (SDK stopped mid-lecture)', () => {
         expect(engine.answer('rewind')).toBe(65);
     });
 });
+
+describe('Only time while playing counts (M3 bug: pauses at 0:00 and repeats)', () => {
+    async function setup() {
+        const { PresenceTracker } = await import('../src/renderer/sensing/presence');
+        const tr = new PresenceTracker();
+        tr.setBaseline(0.22);
+        const engine = new DriftEngine({ rewindSeconds: 30, lookAwayPauseS: 20 });
+        let t = 0;
+        for (let i = 0; i < 30; i++, t += 33_333) tr.feedLandmarks(t, 0.22, 2e-3); // face seen, then gone
+        return { tr, engine, t };
+    }
+    // Ticks every 100 ms; the face stays untracked throughout.
+    function run(engine: DriftEngine, tr: { snapshot(t: number): ReturnType<import('../src/renderer/sensing/presence').PresenceTracker['snapshot']> }, from: number, seconds: number, playing: boolean, video: { time: number }) {
+        const pauses: Drift[] = [];
+        for (let t = from; t < from + seconds * 1e6; t += 100_000) {
+            if (playing) video.time += 0.1;
+            for (const e of engine.tick(t, tr.snapshot(t), { playing, time: video.time })) if (e.type === 'pause') pauses.push(e.drift);
+        }
+        return pauses;
+    }
+
+    it('does not count look-away time from before Play', async () => {
+        const { tr, engine, t } = await setup();
+        const video = { time: 0 };
+        expect(run(engine, tr, t, 30, false, video)).toHaveLength(0);          // 30 s looking away, video paused
+        const p = run(engine, tr, t + 30e6, 25, true, video);                   // press Play, still away
+        expect(p).toHaveLength(1);
+        expect(p[0]!.reason).toBe('looked-away');
+        expect(p[0]!.pausedAtVideo).toBeGreaterThan(19.5);                       // paused ~20 s into playback, not at 0:00
+        expect(p[0]!.onsetVideo).toBeLessThan(0.5);
+    });
+
+    it('does not pause again right after Continue', async () => {
+        const { tr, engine, t } = await setup();
+        const video = { time: 0 };
+        const first = run(engine, tr, t, 21, true, video);
+        expect(first).toHaveLength(1);
+        engine.answer('continue');
+        const again = run(engine, tr, t + 21e6, 10, true, video);              // still looking away, 10 s
+        expect(again).toHaveLength(0);
+        const later = run(engine, tr, t + 31e6, 12, true, video);              // 22 s after Continue
+        expect(later).toHaveLength(1);
+    });
+});

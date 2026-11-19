@@ -13,6 +13,10 @@
 //  - "Back" = 'watching' continuously for returnS.
 //  - Rewind target = onset − rewindSeconds (never before 0).
 //  - One drift at a time: nothing new is raised until the user answers the card.
+//  - Only time while the lecture plays counts: an episode must start after playback
+//    (re)started, and the look-away timer restarts after Play or after answering a
+//    card. (Bug found in M3 testing: a look-away that began before Play paused at
+//    0:00, and paused again right after Continue.)
 
 import type { PresenceSnapshot } from '../sensing/presence';
 
@@ -49,6 +53,9 @@ export class DriftEngine {
     private history: { t: number; video: number }[] = [];
     private nextId = 1;
     private watchingSince: number | null = null;
+    /** When playback last started (µs); episodes before this don't count. */
+    private armedAt: number | null = null;
+    private wasPlaying = false;
     current: Drift | null = null;
     drifts: Drift[] = [];
 
@@ -67,6 +74,8 @@ export class DriftEngine {
         this.drifts = [];
         this.watchingSince = null;
         this.nextId = 1;
+        this.armedAt = null;
+        this.wasPlaying = false;
     }
 
     /** Video time at tracker time t, from what was recorded while playing. */
@@ -88,6 +97,9 @@ export class DriftEngine {
 
     tick(now: number, snap: PresenceSnapshot, player: PlayerState): EngineEvent[] {
         const events: EngineEvent[] = [];
+
+        if (player.playing && !this.wasPlaying && !this.current) this.armedAt = now;
+        this.wasPlaying = player.playing;
 
         if (player.playing) {
             this.history.push({ t: now, video: player.time });
@@ -113,11 +125,17 @@ export class DriftEngine {
         }
 
         if (!player.playing) return events;
-        const longLookAway = snap.state === 'looking-away' && this.opts.lookAwayPauseS != null && snap.untrackedForS >= this.opts.lookAwayPauseS;
-        if (snap.state !== 'eyes-closed' && snap.state !== 'away' && !longLookAway) return events;
+        const armedAt = this.armedAt ?? now;
+        const lookStart = Math.max(now - snap.untrackedForS * US, armedAt);
+        const longLookAway = snap.state === 'looking-away' && this.opts.lookAwayPauseS != null
+            && (now - lookStart) / US >= this.opts.lookAwayPauseS;
+        // Eyes-closed / away episodes must have started after playback started (1 s grace).
+        const freshEpisode = (snap.since ?? now) >= armedAt - US;
+        const isDrift = (snap.state === 'eyes-closed' || snap.state === 'away') && freshEpisode;
+        if (!isDrift && !longLookAway) return events;
         const reason: DriftReason = longLookAway ? 'looked-away' : (snap.state as 'eyes-closed' | 'away');
 
-        const onsetT = longLookAway ? now - snap.untrackedForS * US : (snap.since ?? now);
+        const onsetT = longLookAway ? lookStart : (snap.since ?? now);
         const onsetVideo = Math.min(player.time, Math.max(0, this.videoTimeAt(onsetT, player.time)));
         const drift: Drift = {
             id: this.nextId++,
@@ -162,6 +180,9 @@ export class DriftEngine {
         d.action = action;
         this.current = null;
         this.watchingSince = null;
+        // Count afresh from the next Play.
+        this.armedAt = null;
+        this.wasPlaying = false;
         // Old history no longer maps to where the video will be.
         this.history = [];
         return action === 'rewind' ? d.rewindTo : null;
