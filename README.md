@@ -1,5 +1,7 @@
 # Drift
 
+![Drift: the lecture pauses when you drift off](docs/cover.png)
+
 **A lecture player that pauses when you drift off, and rewinds to where you stopped following.**
 
 You're studying from a recorded lecture late at night. Your eyes close for a few
