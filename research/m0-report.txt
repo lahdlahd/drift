@@ -1,0 +1,43 @@
+Drift M0 report — 2026-11-18T19:29:28.391Z — SDK 3.5.0 — face only: true
+Events 95080 · blink samples 23922 · EAR samples 20560 · test actions 21 · errors 0
+Median per second: frames sent 30, dropped 0, blink samples 30
+Longest continuous "blink detected" run anywhere: 0.21 s
+
+Detector: SDK blink flag → fail
+  closures (asked → measured s): 3→0.21  3→0.18  3→0.16  3→0.16  3→0.16  3→0.16  3→0.16  3→0.21  3→0.18  3→0.18  2→0.14  4→0.16  6→0.18
+  T=1.5s: 3 s closures caught 0/10; false closures in normal watching 0; in notes/phone 0
+  T=2s: 3 s closures caught 0/10; false closures in normal watching 0; in notes/phone 0
+  T=2.5s: 3 s closures caught 0/10; false closures in normal watching 0; in notes/phone 0
+  T=3s: 3 s closures caught 0/10; false closures in normal watching 0; in notes/phone 0
+
+Detector: Landmark EAR < 0.5 × 0.213 → PASS
+  closures (asked → measured s): 3→3.55  3→3.06  3→3.89  3→3.65  3→3.74  3→3.18  3→3.44  3→3.28  3→3.59  3→3.43  2→2.05  4→4.26  6→6.24
+  T=1.5s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+  T=2s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+  T=2.5s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+  T=3s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+
+Detector: Landmark EAR < 0.65 × 0.213 → PASS
+  closures (asked → measured s): 3→3.55  3→3.12  3→3.89  3→3.71  3→3.78  3→3.31  3→3.52  3→3.31  3→3.74  3→3.79  2→2.08  4→4.32  6→6.27
+  T=1.5s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+  T=2s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+  T=2.5s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+  T=3s: 3 s closures caught 10/10; false closures in normal watching 0; in notes/phone 0
+
+Detector: Landmark EAR < 0.75 × 0.213 → fail
+  closures (asked → measured s): 3→3.62  3→3.15  3→3.95  3→3.78  3→3.84  3→3.41  3→3.65  3→3.38  3→5.09  3→3.9  2→2.08  4→4.42  6→6.34
+  T=1.5s: 3 s closures caught 10/10; false closures in normal watching 2; in notes/phone 0
+  T=2s: 3 s closures caught 10/10; false closures in normal watching 1; in notes/phone 0
+  T=2.5s: 3 s closures caught 10/10; false closures in normal watching 1; in notes/phone 0
+  T=3s: 3 s closures caught 10/10; false closures in normal watching 1; in notes/phone 0
+
+Validation OK during normal watching: 0.98
+  notes #1: target code after never s; time share {"Ok":0.38,"FaceTooLow":0.62}
+  notes #2: target code after never s; time share {"Ok":0.07,"FaceTooLow":0.93}
+  notes #3: target code after never s; time share {"Ok":0.06,"FaceTooLow":0.94}
+  phone #1: target code after 0.84 s; time share {"Ok":0.09,"FaceNotForward":0.05,"FaceTooLow":0.84,"MultipleFacesFound":0.02}
+  phone #2: target code after 0.9 s; time share {"Ok":0.09,"FaceNotForward":0.03,"FaceTooLow":0.88}
+  leave #1: target code after never s; time share {"ExcessiveMotion":0.02,"Ok":0.88,"TooBright":0.1}
+  leave #2: target code after never s; time share {"Ok":0.95,"TooBright":0.05}
+
+VERDICT: GO — "Landmark EAR < 0.5 × 0.213" passes at a 3 s threshold

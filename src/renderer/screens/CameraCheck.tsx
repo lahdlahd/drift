@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sensing, type SessionError } from '../sensing/session';
+import { SmartSpectraErrorCode as E, ValidationCode as V } from '@smartspectra/node-sdk/renderer';
 import { computeBaseline } from '../sensing/presence';
 import { bridge, cleanError } from '../bridge';
 import { tracker, useRates, useSessionPhase, useValidation } from '../usePresence';
@@ -9,18 +10,19 @@ type Step = 'idle' | 'measuring' | 'starting' | 'checking' | 'calibrating' | 're
 interface Props { onReady: () => void; onChangeKey: () => void }
 
 const CALIBRATION_MS = 5000;
-const OK = 0;           // ValidationCode.kOk
-const TOO_DARK = 5;
-const TOO_BRIGHT = 6;
+const OK = V.kOk;
+const TOO_DARK = V.kTooDark;
+const TOO_BRIGHT = V.kTooBright;
 
 export function describeSdkError(e: SessionError): string {
     switch (e.code) {
-        case 2: return 'Presage did not accept the API key. Check it, or replace it.';
-        case 4: return 'Your Presage trial credits have run out. Ask Presage on Discord for more.';
-        case 5: return 'Drift could not reach Presage. Check your internet connection and try again.';
-        case 13: return 'Your Presage key is not enabled for face metrics.';
-        case 14: return 'The camera frame rate dropped too low. Add light in front of your face and try again.';
-        case 7: return 'The camera is unavailable. Close other apps that use it, then try again.';
+        case E.kAuthenticationFailed: return 'Presage did not accept the API key. Check it, or replace it.';
+        case E.kCreditExhausted: return 'Your Presage trial credits have run out. Ask Presage on Discord for more.';
+        case E.kNetworkError: return 'Drift could not reach Presage. Check your internet connection and try again.';
+        case E.kServerError: return 'Presage\'s service had a problem. Wait a minute and try again.';
+        case E.kMetricNotAuthorized: return 'Your Presage key is not enabled for face metrics.';
+        case E.kSustainedLowFrameRate: return 'The camera frame rate dropped too low. Add light in front of your face and try again.';
+        case E.kInputUnavailable: return 'The camera is unavailable. Close other apps that use it, then try again.';
         default: return `SmartSpectra stopped: ${e.message}`;
     }
 }

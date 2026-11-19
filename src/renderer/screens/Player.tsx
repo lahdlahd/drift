@@ -6,6 +6,7 @@ import { sensing } from '../sensing/session';
 import { tracker, trackerNow, useSessionPhase, useValidation, useRates } from '../usePresence';
 import { bridge } from '../bridge';
 import { describeSdkError } from './CameraCheck';
+import { ValidationCode as V } from '@smartspectra/node-sdk/renderer';
 import type { SensitivityPreset } from '../../shared/ipc';
 
 export interface Lecture { url: string; name: string }
@@ -16,7 +17,7 @@ const selfTestSession = () => location.hash === '#selftest' && !!(window as unkn
 
 export { engine } from '../drift/instance';
 
-const POOR = new Set([5, 6, 11]); // TooDark, TooBright, FrameRateTooLow
+const POOR = new Set<number>([V.kTooDark, V.kTooBright, V.kFrameRateTooLow]);
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
 const REASON_TITLE: Record<Drift['reason'], string> = {
