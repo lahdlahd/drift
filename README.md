@@ -77,6 +77,7 @@ On Windows, use Command Prompt or Windows Terminal. VS Code's terminal sets
 2. Paste your Presage key. It's stored encrypted on your computer.
 3. Run the **camera check**:
    - sit with a light **in front of** your face;
+   - take off tinted or mirrored glasses (clear glasses are fine);
    - click **Turn on camera**, wait for the ticks, then **Measure my eyes (5 s)**, then **Continue**.
 4. Open a lecture video and press **Space** to play. Then:
    - **close your eyes for 4 s**: the video pauses and a marker appears. Open them and press **R** to rewind 30 s before the drift;
@@ -93,6 +94,8 @@ On Windows, use Command Prompt or Windows Terminal. VS Code's terminal sets
 **Troubleshooting:**
 - **"Frame rate dropped too low" or the camera speed check fails:** add light in front of your face, not behind you, and plug in the charger.
 - **"The camera is busy":** close Zoom, Teams or the Camera app.
+- **Eyes closed but no pause:** tinted or mirrored glasses hide your eyes from the camera. Take them off or use clear lenses, then run the camera check again.
+- **"Signal poor: decrease light on face":** the light is too strong. Move the lamp back or point it at the wall beside you.
 - **Live signals** (Settings → See what Drift sees) shows what Drift sees: eye openness, face movement, frame rates and the SDK's position code.
 
 ---
@@ -160,7 +163,7 @@ cycles passed, with the camera released every time.
 
 - Drift sees physical lapses: closed eyes, an empty seat, a long look-away. It can't tell when your mind wanders with your eyes open.
 - It needs decent front lighting and a webcam that holds about 25–30 fps.
-- It was tested on one laptop and one person, with and without glasses. Thresholds may need tuning for other cameras.
+- It was tested on one laptop and one person, with and without clear glasses. Tinted or mirrored lenses hide the eyes, so eyes-closed detection doesn't work through them. Thresholds may need tuning for other cameras.
 - It plays local video files only. Streaming sites aren't supported.
 
 ## How this was built

@@ -148,6 +148,7 @@ export function CameraCheck({ onReady, onChangeKey }: Props) {
         <div className="wide">
             <h1>Camera check</h1>
             <p className="muted">Sit where you study, with light in front of your face. This takes about 20 seconds.</p>
+            <p className="muted">Tinted or mirrored glasses hide your eyes: take them off or use clear lenses.</p>
             <div className="check-grid">
                 <div>
                     <div className="preview">
